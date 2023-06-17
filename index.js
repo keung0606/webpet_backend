@@ -4,6 +4,10 @@ const cors = require('cors');
 const CatModel = require('./models/Cats');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const jwt = require('jsonwebtoken');
+const UserModel = require('./models/Users');
+const bcrypt = require('bcrypt');
+
 
 const app = express();
 app.use(cors());
@@ -32,9 +36,18 @@ const swaggerOptions = {
           },
           required: ['name', 'age', 'breed'],
         },
+        User: {
+          type: 'object',
+          properties: {
+            username: { type: 'string' },
+            password: { type: 'string' },
+          },
+          required: ['username', 'password'],
+        },
       },
     },
   },
+
   apis: ['./index.js'], // Specify the file containing your API route definitions
 };
 
@@ -154,9 +167,78 @@ app.delete("/deleteCat/:id", (req, res) => {
 });
 
 
+// Users API
+
+/**
+ * @openapi
+ * /register:
+ *   post:
+ *     summary: Register a new user
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+app.post('/register', (req, res) => {
+  const { username, password } = req.body;
+  bcrypt.hash(password, 10, (err, hashedPassword) => {
+    if (err) {
+      res.status(500).json({ error: 'Failed to register user' });
+    } else {
+      UserModel.create({ username, password: hashedPassword })
+        .then((user) => res.json(user))
+        .catch((err) => res.status(500).json({ error: 'Failed to register user' }));
+    }
+  });
+});
+
+/**
+ * @openapi
+ * /login:
+ *   post:
+ *     summary: Log in with username and password
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  UserModel.findOne({ username })
+    .then((user) => {
+      if (!user) {
+        return res.json({ success: false });
+      }
+
+      bcrypt.compare(password, user.password, (err, result) => {
+        if (result) {
+          // Generate and send a token for authentication if needed
+          return res.json({ success: true, token: 'YOUR_AUTH_TOKEN' });
+        } else {
+          return res.json({ success: false });
+        }
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ success: false });
+    });
+});
+
+
 
 
 // Start the server
 app.listen(3002, () => {
   console.log('Server running on port 3002');
 });
+
