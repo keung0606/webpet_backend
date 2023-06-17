@@ -153,6 +153,9 @@ app.delete("/deleteCat/:id", (req, res) => {
     .catch(err => res.json(err))
 });
 
+
+
+
 // Start the server
 app.listen(3002, () => {
   console.log('Server running on port 3002');
