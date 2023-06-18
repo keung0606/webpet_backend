@@ -58,8 +58,9 @@ const swaggerOptions = {
           properties: {
             username: { type: 'string' },
             password: { type: 'string' },
+            userStatus: { type: 'number' },
           },
-          required: ['username', 'password'],
+          required: ['username', 'password', 'userStatus'],
         },
       },
     },
@@ -88,6 +89,7 @@ app.get("/", (req, res) => {
     .then(cats => res.json(cats))
     .catch(err => res.json(err))
 });
+
 
 /**
  * @openapi
@@ -161,7 +163,7 @@ app.post("/createCat", upload.single('image'), (req, res) => {
  *       200:
  *         description: Success
  */
-app.put("/updateCat/:id",upload.single('image'), (req, res) => {
+app.put("/updateCat/:id", upload.single('image'), (req, res) => {
   const id = req.params.id;
   const { name, gender, age, breed } = req.body;
   const image = req.file ? req.file.filename : null;
@@ -215,17 +217,22 @@ app.delete("/deleteCat/:id", (req, res) => {
  *       200:
  *         description: Success
  */
-app.post('/register', (req, res) => {
-  const { username, password } = req.body;
-  bcrypt.hash(password, 10, (err, hashedPassword) => {
-    if (err) {
-      res.status(500).json({ error: 'Failed to register user' });
-    } else {
-      UserModel.create({ username, password: hashedPassword })
-        .then((user) => res.json(user))
-        .catch((err) => res.status(500).json({ error: 'Failed to register user' }));
-    }
-  });
+app.post('/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    bcrypt.hash(password, 10, (err, hashedPassword) => {
+      if (err) {
+        res.status(500).json({ error: 'Failed to register user' });
+      } else {
+        const user = new UserModel({ username, password: hashedPassword, userStatus: 1 });
+        user.save()
+          .then(() => res.json({ success: true }))
+          .catch(() => res.status(500).json({ error: 'Failed to register user' }));
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 /**
@@ -242,29 +249,30 @@ app.post('/register', (req, res) => {
  *       200:
  *         description: Success
  */
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await UserModel.findOne({ username });
 
-  UserModel.findOne({ username })
-    .then((user) => {
-      if (!user) {
+    if (!user) {
+      return res.json({ success: false });
+    }
+
+    bcrypt.compare(password, user.password, (err, result) => {
+      if (result) {
+        // Generate and send a token for authentication if needed
+        const userStatus = user.userStatus;
+        return res.json({ success: true, token: 'YOUR_AUTH_TOKEN', userStatus });
+      } else {
         return res.json({ success: false });
       }
-
-      bcrypt.compare(password, user.password, (err, result) => {
-        if (result) {
-          // Generate and send a token for authentication if needed
-          return res.json({ success: true, token: 'YOUR_AUTH_TOKEN' });
-        } else {
-          return res.json({ success: false });
-        }
-      });
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(500).json({ success: false });
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false });
+  }
 });
+
 
 app.use('/uploads', express.static('uploads'));
 
