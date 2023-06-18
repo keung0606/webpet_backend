@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const MessageModel = require('./models/Message'); 
 
 
 const app = express();
@@ -29,9 +30,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
 // Connect to MongoDB
-mongoose.connect("mongodb://127.0.0.1:27017/petweb_db");
+mongoose.connect('mongodb://127.0.0.1:27017/petweb_db');
 
 // Define Swagger options
 const swaggerOptions = {
@@ -40,7 +40,7 @@ const swaggerOptions = {
     info: {
       title: 'Cat API',
       version: '1.0.0',
-      description: 'API endpoints for managing cats'
+      description: 'API endpoints for managing cats',
     },
     components: {
       schemas: {
@@ -48,10 +48,11 @@ const swaggerOptions = {
           type: 'object',
           properties: {
             name: { type: 'string' },
+            gender: { type: 'string' },
             age: { type: 'number' },
             breed: { type: 'string' },
           },
-          required: ['name', 'age', 'breed'],
+          required: ['name', 'gender', 'age', 'breed'],
         },
         User: {
           type: 'object',
@@ -61,6 +62,16 @@ const swaggerOptions = {
             userStatus: { type: 'number' },
           },
           required: ['username', 'password', 'userStatus'],
+        },
+        Message: {
+          type: 'object',
+          properties: {
+            sender: { type: 'string' },
+            recipient: { type: 'string' },
+            message: { type: 'string' },
+            response: { type: 'string' },
+          },
+          required: ['sender', 'recipient', 'message'],
         },
       },
     },
@@ -84,12 +95,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *       200:
  *         description: Success
  */
-app.get("/", (req, res) => {
-  CatModel.find({})
-    .then(cats => res.json(cats))
-    .catch(err => res.json(err))
+app.get('/', (req, res) => {
+  CatModel.find()
+    .then((cats) => res.json(cats))
+    .catch((err) => res.json(err));
 });
-
 
 /**
  * @openapi
@@ -110,8 +120,8 @@ app.get("/", (req, res) => {
 app.get('/getCat/:id', (req, res) => {
   const id = req.params.id;
   CatModel.findById(id)
-    .then(cat => res.json(cat))
-    .catch(err => res.json(err))
+    .then((cat) => res.json(cat))
+    .catch((err) => res.json(err));
 });
 
 /**
@@ -125,15 +135,16 @@ app.get('/getCat/:id', (req, res) => {
  *           schema:
  *             $ref: '#/components/schemas/Cat'
  *     responses:
- *       200:
+ *       201:
  *         description: Success
  */
-app.post("/createCat", upload.single('image'), (req, res) => {
+app.post('/createCat', upload.single('image'), (req, res) => {
   const { name, gender, age, breed } = req.body;
   const image = req.file ? req.file.filename : null;
 
   const newCat = new CatModel({ name, gender, age, breed, image });
-  newCat.save()
+  newCat
+    .save()
     .then(() => {
       res.status(201).json('Cat created successfully');
     })
@@ -163,7 +174,7 @@ app.post("/createCat", upload.single('image'), (req, res) => {
  *       200:
  *         description: Success
  */
-app.put("/updateCat/:id", upload.single('image'), (req, res) => {
+app.put('/updateCat/:id', upload.single('image'), (req, res) => {
   const id = req.params.id;
   const { name, gender, age, breed } = req.body;
   const image = req.file ? req.file.filename : null;
@@ -176,6 +187,9 @@ app.put("/updateCat/:id", upload.single('image'), (req, res) => {
       res.status(500).json(err);
     });
 });
+
+
+
 
 /**
  * @openapi
@@ -193,13 +207,12 @@ app.put("/updateCat/:id", upload.single('image'), (req, res) => {
  *       200:
  *         description: Success
  */
-app.delete("/deleteCat/:id", (req, res) => {
+app.delete('/deleteCat/:id', (req, res) => {
   const id = req.params.id;
   CatModel.findByIdAndDelete(id)
-    .then(cat => res.json(cat))
-    .catch(err => res.json(err))
+    .then((cat) => res.json(cat))
+    .catch((err) => res.json(err));
 });
-
 
 // Users API
 
@@ -225,7 +238,8 @@ app.post('/register', async (req, res) => {
         res.status(500).json({ error: 'Failed to register user' });
       } else {
         const user = new UserModel({ username, password: hashedPassword, userStatus: 1 });
-        user.save()
+        user
+          .save()
           .then(() => res.json({ success: true }))
           .catch(() => res.status(500).json({ error: 'Failed to register user' }));
       }
@@ -260,7 +274,6 @@ app.post('/login', async (req, res) => {
 
     bcrypt.compare(password, user.password, (err, result) => {
       if (result) {
-        // Generate and send a token for authentication if needed
         const userStatus = user.userStatus;
         return res.json({ success: true, token: 'YOUR_AUTH_TOKEN', userStatus });
       } else {
@@ -273,12 +286,148 @@ app.post('/login', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /sendMessage:
+ *   post:
+ *     summary: Send a message
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               sender:
+ *                 type: string
+ *               recipient:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *             required:
+ *               - sender
+ *               - recipient
+ *               - message
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       500:
+ *         description: Internal server error
+ */
+app.post('/sendMessage', (req, res) => {
+  const { sender, recipient, message } = req.body;
+
+  const newMessage = new MessageModel({ sender, recipient, message });
+  newMessage
+    .save()
+    .then(() => {
+      res.status(201).json('Message sent successfully');
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
+});
+
+/**
+ * @openapi
+ * /deleteMessage/{id}:
+ *   delete:
+ *     summary: Delete a message
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the message
+ *     responses:
+ *       200:
+ *         description: Message deleted successfully
+ *       500:
+ *         description: Internal server error
+ */
+app.delete('/deleteMessage/:id', (req, res) => {
+  const id = req.params.id;
+  MessageModel.findByIdAndDelete(id)
+    .then(() => {
+      res.json('Message deleted successfully');
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
+});
+
+/**
+ * @openapi
+ * /respondToMessage/{id}:
+ *   put:
+ *     summary: Respond to a message
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the message
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               response:
+ *                 type: string
+ *             required:
+ *               - response
+ *     responses:
+ *       200:
+ *         description: Message responded successfully
+ *       500:
+ *         description: Internal server error
+ */
+app.put('/respondToMessage/:id', (req, res) => {
+  const id = req.params.id;
+  const { response } = req.body;
+
+  MessageModel.findByIdAndUpdate(id, { response })
+    .then(() => {
+      res.json('Message responded successfully');
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
+});
+
+/**
+ * @openapi
+ * /getAllMessages:
+ *   get:
+ *     summary: Get all messages
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Message'
+ *       500:
+ *         description: Internal server error
+ */
+app.get('/getAllMessages', (req, res) => {
+  MessageModel.find()
+    .then((messages) => {
+      res.json(messages);
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
+});
+
 
 app.use('/uploads', express.static('uploads'));
-
 
 // Start the server
 app.listen(3002, () => {
   console.log('Server running on port 3002');
 });
+
 
