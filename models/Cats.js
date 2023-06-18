@@ -17,6 +17,9 @@ const CatSchema = new mongoose.Schema({
     type: String,
     enum: ['Male', 'Female'],
     required: true
+  },
+  image: {
+    type: String
   }
 });
 

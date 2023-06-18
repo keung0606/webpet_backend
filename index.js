@@ -7,11 +7,28 @@ const swaggerUi = require('swagger-ui-express');
 const jwt = require('jsonwebtoken');
 const UserModel = require('./models/Users');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Multer configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const fileName = `${Date.now()}-${file.originalname}`;
+    cb(null, fileName);
+  },
+});
+
+const upload = multer({ storage });
+
 
 // Connect to MongoDB
 mongoose.connect("mongodb://127.0.0.1:27017/petweb_db");
@@ -109,10 +126,18 @@ app.get('/getCat/:id', (req, res) => {
  *       200:
  *         description: Success
  */
-app.post("/createCat", (req, res) => {
-  CatModel.create(req.body)
-    .then(cat => res.json(cat))
-    .catch(err => res.json(err))
+app.post("/createCat", upload.single('image'), (req, res) => {
+  const { name, gender, age, breed } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  const newCat = new CatModel({ name, gender, age, breed, image });
+  newCat.save()
+    .then(() => {
+      res.status(201).json('Cat created successfully');
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
 });
 
 /**
@@ -136,11 +161,18 @@ app.post("/createCat", (req, res) => {
  *       200:
  *         description: Success
  */
-app.put("/updateCat/:id", (req, res) => {
+app.put("/updateCat/:id",upload.single('image'), (req, res) => {
   const id = req.params.id;
-  CatModel.findByIdAndUpdate(id, req.body, { new: true })
-    .then(cat => res.json(cat))
-    .catch(err => res.json(err))
+  const { name, gender, age, breed } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  CatModel.findByIdAndUpdate(id, { name, gender, age, breed, image })
+    .then(() => {
+      res.json('Cat updated successfully');
+    })
+    .catch((err) => {
+      res.status(500).json(err);
+    });
 });
 
 /**
@@ -234,7 +266,7 @@ app.post('/login', (req, res) => {
     });
 });
 
-
+app.use('/uploads', express.static('uploads'));
 
 
 // Start the server
