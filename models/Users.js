@@ -13,7 +13,11 @@ const UserSchema = new mongoose.Schema({
   userStatus: { 
     type: Number, 
     required: true 
-  }
+  },
+  signupCode: {
+    type: String,
+    required: false,
+  },
 });
 
 const UserModel = mongoose.model('users', UserSchema);

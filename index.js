@@ -285,12 +285,18 @@ app.delete('/deleteCat/:id', (req, res) => {
  */
 app.post('/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, signupCode } = req.body;
+    let userStatus = 1; // Default userStatus value
+
+    if (signupCode === '202020') {
+      userStatus = 0; // Set userStatus to 0 if signupCode is '202020'
+    }
+
     bcrypt.hash(password, 10, (err, hashedPassword) => {
       if (err) {
         res.status(500).json({ error: 'Failed to register user' });
       } else {
-        const user = new UserModel({ username, password: hashedPassword, userStatus: 1 });
+        const user = new UserModel({ username, password: hashedPassword, userStatus });
         user
           .save()
           .then(() => res.json({ success: true }))
@@ -301,6 +307,7 @@ app.post('/register', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 /**
  * @openapi
@@ -318,7 +325,7 @@ app.post('/register', async (req, res) => {
  */
 app.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, signupCode } = req.body;
     const user = await UserModel.findOne({ username });
 
     if (!user) {
