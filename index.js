@@ -11,13 +11,63 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const MessageModel = require('./models/Message');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: '923985052259-ttu40k8lgd3rh2epcfqadm9a4ht36284.apps.googleusercontent.com',
+      clientSecret: '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',
+      callbackURL: '/auth/google/callback',
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        // Check if the user already exists in the database
+        const existingUser = await User.findOne({ googleId: profile.id });
 
+        if (existingUser) {
+          // User already exists, call the done() function with the user object
+          return done(null, existingUser);
+        }
+
+        // User doesn't exist, create a new user with the provided profile information
+        const newUser = new User({
+          googleId: profile.id,
+          displayName: profile.displayName,
+          email: profile.emails[0].value,
+        });
+
+        // Save the new user to the database
+        await newUser.save();
+
+        // Call the done() function with the newly created user object
+        done(null, newUser);
+      } catch (error) {
+        // Handle any errors that occur during the database operations
+        done(error, null);
+      }
+    }  
+  )
+);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
+// Google authentication routes
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
+
+app.get(
+  '/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    // Successful authentication, redirect to the desired route
+    res.redirect('/viewCats');
+  }
+);
 
 // Multer configuration
 const storage = multer.diskStorage({
