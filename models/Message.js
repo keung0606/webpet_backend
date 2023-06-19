@@ -7,7 +7,7 @@ const messageSchema = new mongoose.Schema({
   },
   recipient: {
     type: String,
-    required: true,
+    required: false,
   },
   message: {
     type: String,
@@ -15,7 +15,7 @@ const messageSchema = new mongoose.Schema({
   },
   response: {
     type: String,
-    default: '',
+    required: false,
   },
   timestamp: {
     type: Date,

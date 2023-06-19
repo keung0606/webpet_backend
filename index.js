@@ -10,7 +10,9 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const MessageModel = require('./models/Message'); 
+const MessageModel = require('./models/Message');
+
+
 
 
 const app = express();
@@ -141,11 +143,12 @@ app.get('/getCat/:id', (req, res) => {
 app.post('/createCat', upload.single('image'), (req, res) => {
   const { name, gender, age, breed } = req.body;
   const image = req.file ? req.file.filename : null;
-
   const newCat = new CatModel({ name, gender, age, breed, image });
+
   newCat
     .save()
     .then(() => {
+
       res.status(201).json('Cat created successfully');
     })
     .catch((err) => {
@@ -174,7 +177,7 @@ app.post('/createCat', upload.single('image'), (req, res) => {
  *       200:
  *         description: Success
  */
-app.put('/updateCat/:id', upload.single('image'), (req, res) => {
+app.put('/updateCat/:id', upload.single('image'), async (req, res) => {
   const id = req.params.id;
   const { name, gender, age, breed } = req.body;
   const image = req.file ? req.file.filename : null;
@@ -313,9 +316,9 @@ app.post('/login', async (req, res) => {
  *         description: Internal server error
  */
 app.post('/sendMessage', (req, res) => {
-  const { sender, recipient, message } = req.body;
+  const { sender, message } = req.body;
 
-  const newMessage = new MessageModel({ sender, recipient, message });
+  const newMessage = new MessageModel({ sender, message });
   newMessage
     .save()
     .then(() => {
@@ -384,9 +387,9 @@ app.delete('/deleteMessage/:id', (req, res) => {
  */
 app.put('/respondToMessage/:id', (req, res) => {
   const id = req.params.id;
-  const { response } = req.body;
+  const { recipient, response } = req.body;
 
-  MessageModel.findByIdAndUpdate(id, { response })
+  MessageModel.findByIdAndUpdate(id, { recipient, response })
     .then(() => {
       res.json('Message responded successfully');
     })
@@ -422,6 +425,38 @@ app.get('/getAllMessages', (req, res) => {
     });
 });
 
+/**
+ * @openapi
+ * /getMessages/{id}:
+ *   get:
+ *     summary: Get messages by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the message
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Message'
+ *       404:
+ *         description: Message not found
+ *       500:
+ *         description: Internal server error
+ */
+app.get('/getMessages/:id', (req, res) => {
+  const id = req.params.id;
+  MessageModel.findById(id)
+    .then((messages) => res.json(messages))
+    .catch((err) => res.json(err));
+});
+
+
 
 app.use('/uploads', express.static('uploads'));
 
@@ -429,5 +464,6 @@ app.use('/uploads', express.static('uploads'));
 app.listen(3002, () => {
   console.log('Server running on port 3002');
 });
+
 
 
